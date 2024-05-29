@@ -5,9 +5,9 @@ import (
 	"log"
 	"os"
 
-	"gitlab.com/dev.pologov/crypto-up-back/pkg/db"
-	"gitlab.com/dev.pologov/crypto-up-back/pkg/envs"
-	"gitlab.com/dev.pologov/crypto-up-back/server"
+	"github.com/b-o-e-v/crypto-up-back/pkg/db"
+	"github.com/b-o-e-v/crypto-up-back/pkg/envs"
+	"github.com/b-o-e-v/crypto-up-back/server"
 )
 
 func init() {
@@ -34,6 +34,9 @@ func main() {
 		log.Println(err)
 		os.Exit(1)
 	}
+
+	// отключаемся от базы
+	defer db.Conn.DB.Close()
 
 	// запускаем сервер
 	if err := server.Up(fmt.Sprintf(":%s", envs.Conf.Port)); err != nil {

@@ -3,7 +3,9 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"strings"
 
 	_ "github.com/lib/pq"
 )
@@ -35,18 +37,47 @@ func Up(conf Config) error {
 	))
 
 	if err != nil {
-		fmt.Println("Не удалось подключиться к базе")
-		return err
+		return fmt.Errorf("Не удалось подключиться к базе")
 	}
 
 	Conn.DB = db
 
 	if err = db.Ping(); err != nil {
-		fmt.Println("Ошибка пинг-базы")
+		return fmt.Errorf("Ошибка пинг-базы")
+	}
+
+	log.Printf("Успешное подключение к базе %s!", conf.Database)
+
+	if err := startMigrations(db); err != nil {
 		return err
 	}
 
-	log.Printf("Успешное подключение к базе %s", conf.Database)
+	return nil
+}
+
+func startMigrations(db *sql.DB) error {
+	// чтение содержимого файла .sql
+	sqlFile, err := ioutil.ReadFile("migrations/create_tables.up.sql")
+
+	if err != nil {
+		return fmt.Errorf("Ошибка при запуске миграций")
+	}
+
+	// Разделение содержимого файла на отдельные SQL-запросы
+	sqlCommands := strings.Split(string(sqlFile), ";")
+
+	// Выполнение каждого SQL-запроса
+	for _, cmd := range sqlCommands {
+		cmd = strings.TrimSpace(cmd)
+		if cmd != "" {
+			_, err := db.Exec(cmd)
+			if err != nil {
+				log.Printf("Ошибка при выполнении SQL: %s\n%s\n", err, cmd)
+			}
+		}
+	}
+
+	log.Println("Таблицы успешно созданы!")
 
 	return nil
 }

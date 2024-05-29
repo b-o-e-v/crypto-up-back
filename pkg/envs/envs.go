@@ -1,7 +1,7 @@
 package envs
 
 import (
-	"fmt"
+	"log"
 	"os"
 
 	"github.com/lpernett/godotenv"
@@ -14,13 +14,14 @@ type EnvConfig struct {
 	DBName     string
 	DBUser     string
 	DBPassword string
+	SecretKey  string
 }
 
 var Conf *EnvConfig
 
 func LoadConf() error {
 	if err := godotenv.Load(); err != nil {
-		fmt.Println("Ошибка загрузки переменных окружения из .env файла")
+		log.Println("Ошибка загрузки переменных окружения из .env файла")
 		return err
 	}
 
@@ -31,6 +32,7 @@ func LoadConf() error {
 		DBName:     os.Getenv("DB_NAME"),
 		DBUser:     os.Getenv("DB_USER"),
 		DBPassword: os.Getenv("DB_PASSWORD"),
+		SecretKey:  os.Getenv("SECRET_KEY"),
 	}
 
 	return nil
