@@ -30,7 +30,7 @@ func VerifyPassword(password string, hashedPassword string) (bool, string) {
 	msg := ""
 
 	if err != nil {
-		msg = fmt.Sprintf("Phone or Password is incorrect")
+		msg = fmt.Sprintf("Пользователь не найден")
 		check = false
 	}
 

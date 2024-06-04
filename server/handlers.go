@@ -10,10 +10,25 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const updateUserTokenSQL = `
+	UPDATE users SET token = ($1) WHERE id = ($2)
+`
+
 const insertUserSQL = `
 	INSERT INTO users (email, phone, login, display_name, image_url, password)
 	VALUES ($1, $2, $3, $4, $5, $6)
-	RETURNING user_id
+	RETURNING id
+`
+
+const getUserByIdSQL = `
+	SELECT id, created_at, email, phone, login, display_name, image_url, password
+	FROM users WHERE id = ($1)
+`
+
+const getUserByEmailSQL = `
+	SELECT id, created_at, email, phone, login, display_name, image_url, password
+	FROM users
+	WHERE email LIKE ($1)
 `
 
 // пинг сервера
@@ -73,10 +88,70 @@ func signup(ctx *gin.Context) {
 		return
 	}
 
+	db.Conn.DB.QueryRow(updateUserTokenSQL, token, userID)
+
 	ctx.JSON(http.StatusOK, gin.H{"data": token})
 }
 
 // авторизация
 func signin(ctx *gin.Context) {
-	ctx.JSON(http.StatusOK, gin.H{"message": "signin"})
+	var user User
+	var token = getToken(ctx)
+	userId := ctx.GetString("id")
+
+	if userId != "" {
+		row := db.Conn.DB.QueryRow(getUserByIdSQL, userId)
+
+		if err := getUserFromDB(row, &user); err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	} else {
+		var data User
+
+		if err := ctx.BindJSON(&data); err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		if data.Email == "" {
+			ctx.JSON(http.StatusOK, gin.H{"error": "Необходимо указать email"})
+			return
+		}
+
+		row := db.Conn.DB.QueryRow(getUserByEmailSQL, data.Email)
+
+		if err := getUserFromDB(row, &user); err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		passwordIsValid, msg := auth.VerifyPassword(data.Password, user.Password)
+
+		if passwordIsValid != true {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": msg})
+			return
+		}
+
+		newToken, err := auth.GenerateToken(fmt.Sprintf("%s", user.Id), envs.Conf.SecretKey)
+
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		db.Conn.DB.QueryRow(updateUserTokenSQL, newToken, user.Id)
+		token = newToken
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"data": User{
+		Id:          user.Id,
+		CreatedAt:   user.CreatedAt,
+		Email:       user.Email,
+		Phone:       user.Phone,
+		Login:       user.Login,
+		DisplayName: user.DisplayName,
+		ImageUrl:    user.ImageUrl,
+		Token:       token,
+	}})
 }

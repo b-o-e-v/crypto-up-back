@@ -10,6 +10,8 @@ func Up(port string) error {
 	server := gin.Default()
 	// устанавливаем заголовки
 	server.Use(CORSMiddleware())
+	// добавляем проверку на авторизацию
+	server.Use(AUTHMiddleware())
 
 	// проверяем работу сервера
 	server.GET("/ping", ping)

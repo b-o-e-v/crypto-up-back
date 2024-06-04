@@ -1,6 +1,29 @@
 package server
 
-import "github.com/gin-gonic/gin"
+import (
+	"fmt"
+	"net/http"
+
+	"github.com/b-o-e-v/crypto-up-back/pkg/auth"
+	"github.com/b-o-e-v/crypto-up-back/pkg/envs"
+	"github.com/gin-gonic/gin"
+)
+
+var allowedPaths = [3]string{
+	"/ping",
+	"/signin",
+	"/signup",
+}
+
+func isAllowedPath(target string) bool {
+	for _, str := range allowedPaths {
+		if str == target {
+			return true
+		}
+	}
+
+	return false
+}
 
 func CORSMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
@@ -14,6 +37,29 @@ func CORSMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		ctx.Next()
+	}
+}
+
+func AUTHMiddleware() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		// Получение пути запроса
+		path := ctx.Request.URL.Path
+		var token = getToken(ctx)
+
+		claims, err := auth.ValidateToken(token, envs.Conf.SecretKey)
+
+		if err != nil {
+			if isAllowed := isAllowedPath(path); isAllowed == false {
+				ctx.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Необходима авторизации")})
+				ctx.Abort()
+				return
+			} else {
+				claims = &auth.SignedDetails{Id: ""}
+			}
+		}
+
+		ctx.Set("id", claims.Id)
 		ctx.Next()
 	}
 }
